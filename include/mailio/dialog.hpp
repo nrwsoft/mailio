@@ -20,7 +20,7 @@ copy at http://www.freebsd.org/copyright/freebsd-license.html.
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/streambuf.hpp>
-#include <boost/asio/deadline_timer.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include "export.hpp"
 
@@ -147,7 +147,7 @@ protected:
     @param expired Flag if the timer has expired.
     **/
     static void check_timeout(const boost::system::error_code& error, std::shared_ptr<boost::asio::ip::tcp::socket> socket,
-        std::shared_ptr<boost::asio::deadline_timer> timer, bool& expired);
+        std::shared_ptr<boost::asio::steady_timer> timer, bool& expired);
 
     /**
     Server hostname.
@@ -172,7 +172,7 @@ protected:
     /**
     Timer to check the timeout.
     **/
-    std::shared_ptr<boost::asio::deadline_timer> timer_;
+    std::shared_ptr<boost::asio::steady_timer> timer_;
 
     /**
     Timeout on I/O operations in milliseconds.

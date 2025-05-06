@@ -29,7 +29,7 @@ using boost::asio::ip::tcp;
 using boost::asio::buffer;
 using boost::asio::streambuf;
 using boost::asio::io_context;
-using boost::asio::deadline_timer;
+using boost::asio::steady_timer;
 using boost::asio::ssl::context;
 using boost::system::system_error;
 using boost::algorithm::trim_if;
@@ -44,7 +44,7 @@ boost::asio::io_context dialog::ios_;
 
 
 dialog::dialog(const string& hostname, unsigned port, milliseconds timeout) :
-    hostname_(hostname), port_(port), socket_(make_shared<tcp::socket>(ios_)), timer_(make_shared<deadline_timer>(ios_)),
+    hostname_(hostname), port_(port), socket_(make_shared<tcp::socket>(ios_)), timer_(make_shared<steady_timer>(ios_)),
     timeout_(timeout), timer_expired_(false), strmbuf_(make_shared<streambuf>())
 {
     istrm_ = make_shared<istream>(strmbuf_.get());
@@ -66,7 +66,7 @@ dialog::dialog(const string& hostname, unsigned port, milliseconds timeout) :
 }
 
 
-dialog::dialog(const dialog& other) : hostname_(move(other.hostname_)), port_(other.port_), socket_(other.socket_), timer_(other.timer_),
+dialog::dialog(const dialog& other) : hostname_(std::move(other.hostname_)), port_(other.port_), socket_(other.socket_), timer_(other.timer_),
     timeout_(other.timeout_), timer_expired_(other.timer_expired_), strmbuf_(other.strmbuf_)
 {
     istrm_ = other.istrm_;
@@ -130,8 +130,8 @@ void dialog::connect_async()
 {
     tcp::resolver res(ios_);
 
-    timer_->expires_at(boost::posix_time::pos_infin);
-    timer_->expires_from_now(boost::posix_time::milliseconds(timeout_.count()));
+    timer_->expires_at(std::chrono::steady_clock::time_point::max());
+    timer_->expires_after(milliseconds(timeout_.count()));
     boost::system::error_code ignored_ec;
     check_timeout(ignored_ec, socket_, timer_, timer_expired_);
 
@@ -159,7 +159,7 @@ void dialog::connect_async()
 template<typename Socket>
 void dialog::send_async(Socket& socket, string line)
 {
-    timer_->expires_from_now(boost::posix_time::milliseconds(timeout_.count()));
+    timer_->expires_after(milliseconds(timeout_.count()));
     string l = line + "\r\n";
     bool has_written{false}, send_error{false};
     async_write(socket, buffer(l, l.size()), [&has_written, &send_error](const boost::system::error_code& error, size_t)
@@ -184,7 +184,7 @@ void dialog::send_async(Socket& socket, string line)
 template<typename Socket>
 string dialog::receive_async(Socket& socket, bool raw)
 {
-    timer_->expires_from_now(boost::posix_time::milliseconds(timeout_.count()));
+    timer_->expires_after(milliseconds(timeout_.count()));
     bool has_read{false}, receive_error{false};
     string line;
     async_read_until(socket, *strmbuf_, "\n", [&has_read, &receive_error, this, &line, raw](const boost::system::error_code& error, size_t)
@@ -213,14 +213,14 @@ string dialog::receive_async(Socket& socket, bool raw)
 }
 
 
-void dialog::check_timeout(const boost::system::error_code& error, shared_ptr<tcp::socket> socket, shared_ptr<deadline_timer> timer, bool& expired)
+void dialog::check_timeout(const boost::system::error_code& error, shared_ptr<tcp::socket> socket, shared_ptr<steady_timer> timer, bool& expired)
 {
-    if (timer->expires_at() <= deadline_timer::traits_type::now())
+    if (timer->expiry() <= std::chrono::steady_clock::now())
     {
         expired = true;
         boost::system::error_code ignored_ec;
         socket->close(ignored_ec);
-        timer->expires_at(boost::posix_time::pos_infin);
+        timer->expires_at(std::chrono::steady_clock::time_point::max());
     }
     timer->async_wait(bind(&dialog::check_timeout, error, socket, timer, expired));
 }

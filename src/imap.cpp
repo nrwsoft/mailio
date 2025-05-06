@@ -410,7 +410,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
                             trim_eol(line);
                         parse_response(line);
                     }
-                    msg_str.emplace(is_uids ? uid : msg_no, move(literal_token->literal));
+                    msg_str.emplace(is_uids ? uid : msg_no, std::move(literal_token->literal));
 
                     // If no UID was found, but we asked for them, it's an error.
                     if (is_uids && uid == 0)
@@ -431,7 +431,7 @@ void imap::fetch(const list<messages_range_t>& messages_range, map<unsigned long
                         message msg;
                         msg.line_policy(line_policy, line_policy);
                         msg.parse(ms.second);
-                        found_messages.emplace(ms.first, move(msg));
+                        found_messages.emplace(ms.first, std::move(msg));
                     }
                 }
                 else
